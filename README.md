@@ -1,4 +1,4 @@
-# partial_date
+# Partial date
 
 Create a date mapper class for a custom django date field (a custom django field is based on a python class)
 This class maps a string input to a datetime instance. Following the partial-date repository we can use the seconds to store the specificity of the date.
