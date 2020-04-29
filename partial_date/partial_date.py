@@ -1,4 +1,5 @@
 import datetime
+from django.db import models
 
 '''
 -goal: a custom Django field that accepts input with different levels of date specificity, ranging from a specific day to a millennium
@@ -20,13 +21,16 @@ century 	20c					<integer>c		1900-2000
 millenium 	2m					<integer>m		1000-2000
 '''
 
-class Partial_date:
+class PartialDate:
 	def __init__(self,s = None, t = None):
 		self.s = s
 		self.format_help = format_help
-		self.format_error = ValueError('input string does not conform to format ' + str(self.s) + '\n' + self.format_help)
-		self.type_dict = {'y':'year','d':'decade','c':'century','m':'millenium','ym':'year_month','ymd':'year_month_day'}
-		self.type2number_dict = {'year':0,'decade':1,'century':2,'millenium':3,'year_month':4,'year_month_day':5}
+		self.format_error = ValueError('input string does not conform to format ' 
+			+ str(self.s) + '\n' + self.format_help)
+		self.type_dict = {'y':'year','d':'decade','c':'century','m':'millenium',
+			'ym':'year_month','ymd':'year_month_day'}
+		self.type2number_dict = {'year':0,'decade':1,'century':2,'millenium':3,
+			'year_month':4,'year_month_day':5}
 		self.number2type_dict = reverse_dict(self.type2number_dict)
 		self.type2multiplier = {'decade':10,'century':100,'millenium':1000}
 		if s == None and t == None: raise ValueError('please provide string or datetime object')
@@ -36,10 +40,27 @@ class Partial_date:
 		else: self.set_datetime_form_database(t)
 
 	def __str__(self):
-		return self.s + ' ' + self.type
+		return self.pretty_string()
 
 	def __repr__(self):
 		return str(self.start_dt) + ' ' + str(self.end_dt)
+
+	def __lt__(self,other):
+		if type(other) == float: return self.dt < datetime.datetime.fromtimestamp(other)
+		elif type(other) == datetime.datetime: return self.dt < other
+		elif not type(self) == type(other):
+			raise ValueError('cannot compare with ' + str(type(other)) + ' ' + other)
+		return self.dt < other.dt
+
+	def __contains__(self,other):
+		if type(other) == float: 
+			start_dt = datetime.datetime.fromtimestamp(other)
+			end_dt = start_dt
+		elif type(self) == type(other): start_dt, end_dt = other.start_dt,other.end_dt
+		elif type(other) == datetime.datetime: start_dt, end_dt = dt, dt
+		else: raise ValueError('cannot compare with ' + str(type(other)) + ' ' + other)
+		return self.start_dt <= start_dt and self.end_dt >= end_dt
+		
 
 	def determine_type(self):
 		self.year, self.month, self.day = 1,1,1
@@ -63,8 +84,8 @@ class Partial_date:
 
 	def _set_datetime(self):
 		if self.type in 'decade,century,millenium'.split(','):
-			self.end_year = self.number * self.type2multiplier[self.type]
-			self.year = self.end_year - self.type2multiplier[self.type]
+			self.end_year = self.number * self.type2multiplier[self.type] - 1
+			self.year = self.end_year + 1 - self.type2multiplier[self.type]
 			if self.year == 0: self.year =1
 			self.dt = datetime.datetime(year=self.year,month=1,day=1,microsecond = self.type2number_dict[self.type])
 			self.start_dt = self.dt
@@ -99,7 +120,6 @@ class Partial_date:
 
 	def pretty_string(self):
 		if self.type in 'decade,century,millenium'.split(','):
-			print(make_count_string(self.number),self.type)
 			return make_count_string(self.number) + ' ' + self.type
 		if self.type == 'year': s='%Y'
 		if self.type == 'year_month': s='%Y-%m'
@@ -108,9 +128,28 @@ class Partial_date:
 
 	@property
 	def name(self):
-		return self.pretty_string()
+		return self.s + ' ' + self.type
 
-		
+
+class PartialDateField(models.Field):
+
+	def get_internal_type(self):
+		return "DateTimeField"
+
+	def from_db_value(self, value, expression, connection, context = None):
+		if value is None: return value
+		return PartialDate(t = value.dt)	
+
+	def to_python(self, value):
+		if value is None: return value
+		if isinstance(value, PartialDate): return value
+		if isinstance(value, str): return PartialDate(value)
+		raise expressions.ValidationError('could not parse: '+value)
+
+	def get_prep_value(self,value):
+		if value is None or value == '': return None
+		partial_date = self.to_python(value)
+		return partial_date.dt
 
 	
 def make_count_string(n):
@@ -120,13 +159,6 @@ def make_count_string(n):
 	if str(n)[-1] == '3': return str(n)+'rd'
 	raise ValueError('could not parse',n)
 		
-			
-
-			
-	
-		
-		
-	
 	
 			
 def reverse_dict(d):
