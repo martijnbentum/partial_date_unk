@@ -12,17 +12,25 @@ This class maps a string input to a datetime instance. Following the partial-dat
 
 format_help = '''
 The input string has the following format:
+			(format)
+day         1999-12-04    Y-M-D
+month       1999-12       Y-M
+year        1999y         <integer>y
+decade      200d          <integer>d     1990-2000
+century     20c           <integer>c     1900-2000
+millenium   2m            <integer>m     1000-2000
 
-day	 		1999-12-04			Y-M-D
-month		1999-12				Y-M
-year 		1999y				<integer>y
-decade		200d				<integer>d 		1990-2000
-century 	20c					<integer>c		1900-2000
-millenium 	2m					<integer>m		1000-2000
+For december fourth 1999 you type: 1999-12-04
 '''
 
 class PartialDate:
+	'''A class to map between a string and datetime object for a custom django field that can store partial dates.'''
 	def __init__(self,s = None, t = None):
+		'''Object that map between string and datetime object.
+		s 		specially formated string (see format_help) that specifies a date
+		t 		datetime object with precission stored in the microseconds
+		'''
+		
 		self.s = s
 		self.format_help = format_help
 		self.format_error = ValueError('input string does not conform to format ' 
@@ -53,6 +61,7 @@ class PartialDate:
 		return self.dt < other.dt
 
 	def __contains__(self,other):
+		'''checks whether the other time is within the self time.'''
 		if type(other) == float: 
 			start_dt = datetime.datetime.fromtimestamp(other)
 			end_dt = start_dt
@@ -63,6 +72,7 @@ class PartialDate:
 		
 
 	def determine_type(self):
+		'''based on the string format the level of date specificity is determined.'''
 		self.year, self.month, self.day = 1,1,1
 		if self.s == '': raise self.format_error
 		if self.s[-1] in self.type_dict.keys():
@@ -83,6 +93,11 @@ class PartialDate:
 
 
 	def _set_datetime(self):
+		'''create the datetime object. dt, start_dt end_dt (dt == start_dt)
+		start / end dt refer to the start /end point of a date, 
+		for example 2nd century (2c) start_date = 100-01-01, end_date = 0199-12-31
+		the start date is stored in the database
+		'''
 		if self.type in 'decade,century,millenium'.split(','):
 			self.end_year = self.number * self.type2multiplier[self.type] - 1
 			self.year = self.end_year + 1 - self.type2multiplier[self.type]
@@ -99,6 +114,7 @@ class PartialDate:
 				microsecond=self.type2number_dict[self.type])
 
 	def set_datetime_form_database(self, dt):
+		'''Create a partial date object from a datetime object (microseconds indicate the precission).'''
 		self.dt = dt
 		self.start_dt = self.dt
 		self._datetime2str()
@@ -106,6 +122,7 @@ class PartialDate:
 
 
 	def _datetime2str(self):
+		'''Create the string representation based on datetime object.'''
 		self.type = self.number2type_dict[self.dt.microsecond]
 		self.year = self.dt.year
 		self.month = self.dt.month
@@ -119,6 +136,7 @@ class PartialDate:
 		else: raise ValueError('do not recognize type:',self.type)
 
 	def pretty_string(self):
+		'''Create nice format for the date (e.g. 2nd century).'''
 		if self.type in 'decade,century,millenium'.split(','):
 			return make_count_string(self.number) + ' ' + self.type
 		if self.type == 'year': s='%Y'
@@ -128,17 +146,22 @@ class PartialDate:
 
 	@property
 	def name(self):
-		return self.s + ' ' + self.type
+		return self.s 
+
+	@property
+	def help(self):
+		print(self.format_help)
 
 
 class PartialDateField(models.Field):
-
+	'''Custom django field to store date information with different levels of specificity.'''
 	def get_internal_type(self):
 		return "DateTimeField"
 
 	def from_db_value(self, value, expression, connection, context = None):
 		if value is None: return value
-		return PartialDate(t = value.dt)	
+		if isinstance(value, PartialDate): return value
+		return PartialDate(t = value)
 
 	def to_python(self, value):
 		if value is None: return value
@@ -153,6 +176,7 @@ class PartialDateField(models.Field):
 
 	
 def make_count_string(n):
+	'''Create the correct abbreviation for a date (2nd or 4th) for 2nd or 4th century).'''
 	if n == 0 or int(str(n)[-1]) > 3: return str(n)+'th'
 	if str(n)[-1] == '1': return str(n)+'st'
 	if str(n)[-1] == '2': return str(n)+'nd'
@@ -162,5 +186,6 @@ def make_count_string(n):
 	
 			
 def reverse_dict(d):
+	'''Swap keys and values does not check whether original values are unique.'''
 	return {v:k for k, v in d.items()}
 				
