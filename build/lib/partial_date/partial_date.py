@@ -131,6 +131,7 @@ class PartialDate:
 			n = self.type2multiplier[self.type]
 			self.number = int((self.year+n)/n)
 			self.s = str(self.number) + reverse_dict(self.type_dict)[self.type]
+		elif self.type == 'year': self.s = self.dt.strftime('%Y') 
 		elif self.type == 'year_month': self.s = self.dt.strftime('%Y-%m') 
 		elif self.type == 'year_month_day': self.s = self.dt.strftime('%Y-%m-%d') 
 		else: raise ValueError('do not recognize type:',self.type)
