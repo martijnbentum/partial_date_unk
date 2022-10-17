@@ -3,12 +3,16 @@ from django.db import models
 from functools import reduce
 
 '''
--goal: a custom Django field that accepts input with different levels of date specificity, ranging from a specific day to a millennium
-creating a custom field keeps data entry and database structure simple compared to using multiple fields
+-goal: a custom Django field that accepts input with different levels of date 
+    specificity, ranging from a specific day to a millennium
+creating a custom field keeps data entry and database structure simple compared 
+    to using multiple fields
 
 -Solution
 Create a date mapper class (a custom django field is based on a python class)
-This class maps a string input to a datetime instance. Following the partial-date repository we can use the seconds to store the specificity of the date.
+    This class maps a string input to a datetime instance. Following the 
+    partial-date repository we can use the seconds to store the specificity 
+    of the date.
 '''
 
 format_help = '''
@@ -32,27 +36,36 @@ Alternative formats
 1999-01             January 1999
 1999-01-31          January 31, 1999
 '''
+def _month_dict():
+    r = range(1,13)
+    d = dict([[datetime.datetime(2020, i,1).strftime('%B'),i] for i in r])
+    return d
 
 class PartialDate:
-    '''A class to map between a string and datetime object for a custom django field that can store partial dates.'''
+    '''A class to map between a string and datetime object for a custom django 
+    field that can store partial dates.
+    '''
     def __init__(self,s = None, t = None):
         '''Object that map between string and datetime object.
-        s       specially formated string (see format_help) that specifies a date
+        s       specially formated string (see format_help) that specifies a 
+                date
         t       datetime object with precission stored in the microseconds
         '''
         
         self.s = s
         self.format_help = format_help
-        self.format_error = ValueError('input string does not conform to format "' 
-            + str(self.s) + '"\n' + self.format_help)
+        m = 'input string does not conform to format "' 
+        m += str(self.s) + '"\n' + self.format_help
+        self.format_error = ValueError(m)
         self.type_dict = {'y':'year','d':'decade','c':'century','m':'millenium',
             'ym':'year_month','ymd':'year_month_day'}
         self.type2number_dict = {'year':0,'decade':1,'century':2,'millenium':3,
             'year_month':4,'year_month_day':5}
         self.number2type_dict = reverse_dict(self.type2number_dict)
         self.type2multiplier = {'decade':10,'century':100,'millenium':1000}
-        self.month_dict = dict([[datetime.datetime(2020, i,1).strftime('%B'),i] for i in range(1,13)])
-        if s == None and t == None: raise ValueError('please provide string or datetime object')
+        self.month_dict = _month_dict()
+        if s == None and t == None: 
+            raise ValueError('please provide string or datetime object')
         if s:
             self.determine_type()
             self._set_datetime()
@@ -65,10 +78,14 @@ class PartialDate:
         return str(self.start_dt) + ' ' + str(self.end_dt)
 
     def __lt__(self,other):
-        if type(other) == float: return self.dt < datetime.datetime.fromtimestamp(other)
-        elif type(other) == datetime.datetime: return self.dt < other
+        if type(other) == float: 
+            return self.dt < datetime.datetime.fromtimestamp(other)
+        elif type(other) == datetime.datetime: 
+            return self.dt < other
         elif not type(self) == type(other):
-            raise ValueError('cannot compare with ' + str(type(other)) + ' ' + other)
+            m ='cannot compare with '
+            m += str(type(other)) + ' ' + other
+            raise ValueError(m) 
         return self.dt < other.dt
 
     def __contains__(self,other):
@@ -76,9 +93,14 @@ class PartialDate:
         if type(other) == float: 
             start_dt = datetime.datetime.fromtimestamp(other)
             end_dt = start_dt
-        elif type(self) == type(other): start_dt, end_dt = other.start_dt,other.end_dt
-        elif type(other) == datetime.datetime: start_dt, end_dt = dt, dt
-        else: raise ValueError('cannot compare with ' + str(type(other)) + ' ' + other)
+        elif type(self) == type(other): 
+            start_dt, end_dt = other.start_dt,other.end_dt
+        elif type(other) == datetime.datetime: 
+            start_dt, end_dt = dt, dt
+        else: 
+            m = 'cannot compare with '
+            m += str(type(other)) + ' ' + other
+            raise ValueError(m) 
         return self.start_dt <= start_dt and self.end_dt >= end_dt
 
     def __eq__(self,other):
@@ -88,7 +110,9 @@ class PartialDate:
         
 
     def determine_type(self):
-        '''based on the string format the level of date specificity is determined.'''
+        '''based on the string format the level of 
+        date specificity is determined.
+        '''
         self.year, self.month, self.day = 1,1,1
         if self.s == '': raise self.format_error
         elif check_month(self.s):
@@ -116,35 +140,47 @@ class PartialDate:
             except: raise self.format_error
             else:self.type = 'year_month'
         elif self.s.count('-') == 2:
-            try: self.year, self.month,self.day = [int(s) for s in self.s.split('-')]
-            except: raise self.format_error
-            else:self.type = 'year_month_day'
+            try: 
+                y, m, d = [int(s) for s in self.s.split('-')]
+                self.year, self.month,self.day = y, m, d
+            except: 
+                raise self.format_error
+            else:
+                self.type = 'year_month_day'
         else: raise self.format_error
 
 
     def _set_datetime(self):
         '''create the datetime object. dt, start_dt end_dt (dt == start_dt)
         start / end dt refer to the start /end point of a date, 
-        for example 2nd century (2c) start_date = 100-01-01, end_date = 0199-12-31
+        for example 2nd century (2c) 
+            start_date = 100-01-01, end_date = 0199-12-31
         the start date is stored in the database
         '''
         if self.type in 'decade,century,millenium'.split(','):
             self.end_year = self.number * self.type2multiplier[self.type] - 1
             self.year = self.end_year + 1 - self.type2multiplier[self.type]
             if self.year == 0: self.year =1
-            self.dt = datetime.datetime(year=self.year,month=1,day=1,microsecond = self.type2number_dict[self.type])
+            self.dt = datetime.datetime(year=self.year,month=1,day=1,
+                microsecond = self.type2number_dict[self.type])
             self.start_dt = self.dt
-            self.end_dt = datetime.datetime(year=self.end_year,month=12,day=31,microsecond = self.type2number_dict[self.type])
+            self.end_dt = datetime.datetime(year=self.end_year,month=12,day=31,
+                microsecond = self.type2number_dict[self.type])
         else:
-            self.dt = datetime.datetime(year=self.year,month=self.month,day=self.day,microsecond = self.type2number_dict[self.type])
+            self.dt = datetime.datetime(year=self.year,month=self.month,
+                day=self.day,microsecond = self.type2number_dict[self.type])
             self.start_dt = self.dt
-            if self.type == 'year': self.month, self.day =12,31
-            if self.type == 'year_month': self.day = month2endday(self.year,self.month)
-            self.end_dt = datetime.datetime(year=self.year,month=self.month,day=self.day,
-                microsecond=self.type2number_dict[self.type])
+            if self.type == 'year': 
+                self.month, self.day =12,31
+            if self.type == 'year_month': 
+                self.day = month2endday(self.year,self.month)
+            self.end_dt = datetime.datetime(year=self.year,month=self.month,
+                day=self.day,microsecond=self.type2number_dict[self.type])
+
 
     def set_datetime_form_database(self, dt):
-        '''Create a partial date object from a datetime object (microseconds indicate the precission).'''
+        '''Create a partial date object from a datetime object 
+        (microseconds indicate the precission).'''
         self.dt = dt
         self.start_dt = self.dt
         self._datetime2str()
@@ -161,10 +197,14 @@ class PartialDate:
             n = self.type2multiplier[self.type]
             self.number = int((self.year+n)/n)
             self.s = str(self.number) + reverse_dict(self.type_dict)[self.type]
-        elif self.type == 'year': self.s = self.dt.strftime('%Y') 
-        elif self.type == 'year_month': self.s = self.dt.strftime('%Y-%m') 
-        elif self.type == 'year_month_day': self.s = self.dt.strftime('%Y-%m-%d') 
-        else: raise ValueError('do not recognize type:',self.type)
+        elif self.type == 'year': 
+            self.s = self.dt.strftime('%Y') 
+        elif self.type == 'year_month': 
+            self.s = self.dt.strftime('%Y-%m') 
+        elif self.type == 'year_month_day': 
+            self.s = self.dt.strftime('%Y-%m-%d') 
+        else: 
+            raise ValueError('do not recognize type:',self.type)
 
     def pretty_string(self):
         '''Create nice format for the date (e.g. 2nd century).'''
@@ -185,7 +225,8 @@ class PartialDate:
 
 
 class PartialDateField(models.Field):
-    '''Custom django field to store date information with different levels of specificity.'''
+    '''Custom django field to store date information 
+    with different levels of specificity.'''
     def get_internal_type(self):
         return "DateTimeField"
 
@@ -207,7 +248,8 @@ class PartialDateField(models.Field):
 
     
 def make_count_string(n):
-    '''Create the correct abbreviation for a date (2nd or 4th) for 2nd or 4th century).'''
+    '''Create the correct abbreviation for a date 
+    (2nd or 4th) for 2nd or 4th century).'''
     if n == 0 or int(str(n)[-1]) > 3 or int(str(n)[-1]) == 0: return str(n)+'th'
     if str(n)[-1] == '1': return str(n)+'st'
     if str(n)[-1] == '2': return str(n)+'nd'
@@ -252,6 +294,7 @@ def month2endday(year, month):
             
 
 def reverse_dict(d):
-    '''Swap keys and values does not check whether original values are unique.'''
+    '''Swap keys and values does not check whether original values are unique.
+    '''
     return {v:k for k, v in d.items()}
                 
