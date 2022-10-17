@@ -60,7 +60,7 @@ class PartialDate:
         self.type_dict = {'y':'year','d':'decade','c':'century','m':'millenium',
             'ym':'year_month','ymd':'year_month_day'}
         self.type2number_dict = {'year':0,'decade':1,'century':2,'millenium':3,
-            'year_month':4,'year_month_day':5}
+            'year_month':4,'year_month_day':5,'unknown':6,'now':7}
         self.number2type_dict = reverse_dict(self.type2number_dict)
         self.type2multiplier = {'decade':10,'century':100,'millenium':1000}
         self.month_dict = _month_dict()
@@ -157,6 +157,8 @@ class PartialDate:
             start_date = 100-01-01, end_date = 0199-12-31
         the start date is stored in the database
         '''
+        if self.type == 'unknown':pass
+        if self.type == 'now':pass
         if self.type in 'decade,century,millenium'.split(','):
             self.end_year = self.number * self.type2multiplier[self.type] - 1
             self.year = self.end_year + 1 - self.type2multiplier[self.type]
@@ -193,6 +195,8 @@ class PartialDate:
         self.year = self.dt.year
         self.month = self.dt.month
         self.day = self.dt.day
+        if self.type == 'unknown':pass
+        if self.type == 'now':pass
         if self.type in 'decade,century,millenium'.split(','):
             n = self.type2multiplier[self.type]
             self.number = int((self.year+n)/n)
