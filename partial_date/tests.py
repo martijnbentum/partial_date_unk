@@ -82,10 +82,28 @@ class TestCreation(unittest.TestCase):
         self.assertEqual(pd('2m'),pd(t = pd('2m').dt))
 
     def test_unknow(self):
-        pass
+        self.assertEqual(pd('unknown').pretty_string(),'unknown')
+        self.assertEqual(pd('unk').pretty_string(),'unknown')
+        self.assertEqual(pd('unk').year,None)
+        self.assertEqual(pd('unk').month,None)
+        self.assertEqual(pd('unk').day,None)
+
+        self.assertEqual(pd('unk'),pd(t = pd('unknown').dt))
+        self.assertEqual(pd('unk'),pd(t = pd('unk').dt))
+        self.assertEqual(pd('unknown'),pd(t = pd('unknown').dt))
+        self.assertEqual(pd('unknown'),pd(t = pd('unk').dt))
 
     def test_now(self):
-        pass
+        self.assertEqual(pd('present').pretty_string(),'present')
+        self.assertEqual(pd('now').pretty_string(),'present')
+        self.assertEqual(pd('now').year,dt.now().year)
+        self.assertEqual(pd('now').month,dt.now().month)
+        self.assertEqual(pd('now').day,dt.now().day)
+
+        self.assertEqual(pd('now'),pd(t = pd('present').dt))
+        self.assertEqual(pd('now'),pd(t = pd('now').dt))
+        self.assertEqual(pd('present'),pd(t = pd('present').dt))
+        self.assertEqual(pd('present'),pd(t = pd('now').dt))
 
 if __name__ == '__main__':
     unittest.main()

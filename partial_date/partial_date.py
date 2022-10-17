@@ -58,7 +58,7 @@ class PartialDate:
         m += str(self.s) + '"\n' + self.format_help
         self.format_error = ValueError(m)
         self.type_dict = {'y':'year','d':'decade','c':'century','m':'millenium',
-            'ym':'year_month','ymd':'year_month_day'}
+            'ym':'year_month','ymd':'year_month_day','unk':'unknown','n':'now'}
         self.type2number_dict = {'year':0,'decade':1,'century':2,'millenium':3,
             'year_month':4,'year_month_day':5,'unknown':6,'now':7}
         self.number2type_dict = reverse_dict(self.type2number_dict)
@@ -115,6 +115,8 @@ class PartialDate:
         '''
         self.year, self.month, self.day = 1,1,1
         if self.s == '': raise self.format_error
+        elif self.s in ['now','present']: self.type = 'now'
+        elif self.s in ['unk','unknown']: self.type = 'unknown'
         elif check_month(self.s):
             self.month = self.month_dict[check_month(self.s)]
             self.year = int(self.s.split(' ')[-1])
@@ -157,9 +159,24 @@ class PartialDate:
             start_date = 100-01-01, end_date = 0199-12-31
         the start date is stored in the database
         '''
-        if self.type == 'unknown':pass
-        if self.type == 'now':pass
-        if self.type in 'decade,century,millenium'.split(','):
+        if self.type == 'unknown':
+            self.dt = datetime.datetime(year=1,month=1,day = 1,
+                microsecond= self.type2number_dict[self.type])
+            self.start_dt = self.dt
+            self.end_dt = self.dt
+            self.year = None
+            self.month = None
+            self.day= None
+        elif self.type == 'now':
+            dt = datetime.datetime.now()
+            self.dt = datetime.datetime(year =dt.year, month = dt.month, 
+                day = dt.day, microsecond = self.type2number_dict[self.type])
+            self.start_dt = self.dt
+            self.end_dt = self.dt
+            self.year = self.dt.year
+            self.month = self.dt.month
+            self.day= self.dt.day
+        elif self.type in 'decade,century,millenium'.split(','):
             self.end_year = self.number * self.type2multiplier[self.type] - 1
             self.year = self.end_year + 1 - self.type2multiplier[self.type]
             if self.year == 0: self.year =1
@@ -195,9 +212,9 @@ class PartialDate:
         self.year = self.dt.year
         self.month = self.dt.month
         self.day = self.dt.day
-        if self.type == 'unknown':pass
-        if self.type == 'now':pass
-        if self.type in 'decade,century,millenium'.split(','):
+        if self.type == 'unknown':self.s = 'unknown'
+        elif self.type == 'now':self.s = 'present'
+        elif self.type in 'decade,century,millenium'.split(','):
             n = self.type2multiplier[self.type]
             self.number = int((self.year+n)/n)
             self.s = str(self.number) + reverse_dict(self.type_dict)[self.type]
@@ -214,6 +231,8 @@ class PartialDate:
         '''Create nice format for the date (e.g. 2nd century).'''
         if self.type in 'decade,century,millenium'.split(','):
             return make_count_string(self.number) + ' ' + self.type
+        if self.type == 'unknown': return 'unknown'
+        if self.type == 'now': return 'present'
         if self.type == 'year': s='%Y'
         if self.type == 'year_month': s='%B %Y'
         if self.type == 'year_month_day': s='%B %d, %Y'
